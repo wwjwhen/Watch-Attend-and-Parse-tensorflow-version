@@ -25,7 +25,7 @@ the same as ours as jianshu stated in his github [issues](https://github.com/Jia
 
 # Usage
 
-```Python
+```sh
 python model-single-GPU.py  --batch_size=4
 ```
 

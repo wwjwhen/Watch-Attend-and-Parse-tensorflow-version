@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm
 from tensorflow.contrib.framework import arg_scope
-#import tensorflow.contrib.slim as slim
 import numpy as np
 from data import dataIterator, load_dict, prepare_data
 import random
@@ -15,8 +14,15 @@ import math
 
 rng = np.random.RandomState(int(time.time()))
 
+
+'''
+following three functions:
+norm_weight(),
+conv_norm_weight(),
+ortho_weight()
+are initialization methods for weights
+'''
 def norm_weight(fan_in, fan_out):
-	#rng = np.random.RandomState(12345)
 	W_bound = np.sqrt(6.0 / (fan_in + fan_out))
 	return np.asarray(rng.uniform(low=-W_bound, high=W_bound, size=(fan_in, fan_out)), dtype=np.float32)
 
@@ -128,7 +134,7 @@ class Watcher_train():
 
 
 class Attender():
-	def __init__(self, channels,      # output of Watcher | [batch, h, w, channels]
+	def __init__(self, channels,                                # output of Watcher | [batch, h, w, channels]
 				dim_decoder, dim_attend):                       # decoder hidden state:$h_{t-1}$ | [batch, dec_dim]
 
 		self.channels = channels
@@ -144,15 +150,15 @@ class Attender():
 		self.U_f_b = tf.Variable(np.zeros((self.dim_attend,)).astype('float32'), name='U_f_b')  # $U_f x f_i + U_f_b$ | [dim_attend, ]
 
 		self.U_a = tf.Variable(norm_weight(self.channels,
-			self.dim_attend), name='U_a')                        # $U_a x a_i$ | [annotatin_channels, dim_attend]
+			self.dim_attend), name='U_a')                                                      # $U_a x a_i$ | [annotatin_channels, dim_attend]
 		self.U_a_b = tf.Variable(np.zeros((self.dim_attend,)).astype('float32'), name='U_a_b') # $U_a x a_i + U_a_b$ | [dim_attend, ]
 
 		self.W_a = tf.Variable(norm_weight(self.dim_decoder,
-			self.dim_attend), name='W_a')                        # $W_a x h_{t_1}$ | [dec_dim, dim_attend]
+			self.dim_attend), name='W_a')                                                      # $W_a x h_{t_1}$ | [dec_dim, dim_attend]
 		self.W_a_b = tf.Variable(np.zeros((self.dim_attend,)).astype('float32'), name='W_a_b') # $W_a x h_{t-1} + W_a_b$ | [dim_attend, ]
 
-		self.V_a = tf.Variable(norm_weight(self.dim_attend, 1), name='V_a') # $V_a x tanh(A + B + C)$ | [dim_attend, 1]
-		self.V_a_b = tf.Variable(np.zeros((1,)).astype('float32'), name='V_a_b') # $V_a x tanh(A + B + C) + V_a_b$ | [1, ]
+		self.V_a = tf.Variable(norm_weight(self.dim_attend, 1), name='V_a')                    # $V_a x tanh(A + B + C)$ | [dim_attend, 1]
+		self.V_a_b = tf.Variable(np.zeros((1,)).astype('float32'), name='V_a_b')               # $V_a x tanh(A + B + C) + V_a_b$ | [1, ]
 
 		self.alpha_past_filter = tf.Variable(conv_norm_weight(1, self.dim_attend, self.coverage_kernel), name='alpha_past_filter')
 
@@ -191,7 +197,7 @@ class Attender():
 		alpha = alpha / tf.reduce_sum(alpha, \
 			axis=[1, 2], keepdims=True)                         # normlized weights | [batch, h, w]
 
-		alpha_past4ctx += alpha                                     # accumalated weights matrix | [batch, h, w]
+		alpha_past4ctx += alpha                                 # accumalated weights matrix | [batch, h, w]
 
 		context = tf.reduce_sum(annotation4ctx * alpha[:, :, :, None], \
 			axis=[1, 2])                                        # context vector | [batch, feature_channels]
@@ -214,18 +220,18 @@ class Parser():
 		self.b_yz_yr = tf.Variable(np.zeros((2 * self.hidden_dim, )).astype('float32'), name='b_yz_yr')
 
 		self.U_hz_hr = tf.Variable(np.concatenate(
-			[ortho_weight(self.hidden_dim),ortho_weight(self.hidden_dim)], axis=1), name='U_hz_hr')   # [dim_hidden, 2 * dim_hidden]
+			[ortho_weight(self.hidden_dim),ortho_weight(self.hidden_dim)], axis=1), name='U_hz_hr')                              # [dim_hidden, 2 * dim_hidden]
 
 		self.W_yh = tf.Variable(norm_weight(self.word_dim,
 			self.hidden_dim), name='W_yh')
-		self.b_yh = tf.Variable(np.zeros((self.hidden_dim, )).astype('float32'), name='b_yh')        # [dim_decoder, ]
+		self.b_yh = tf.Variable(np.zeros((self.hidden_dim, )).astype('float32'), name='b_yh')                                    # [dim_decoder, ]
 
-		self.U_rh = tf.Variable(ortho_weight(self.hidden_dim), name='U_rh')       # [dim_hidden, dim_hidden]
+		self.U_rh = tf.Variable(ortho_weight(self.hidden_dim), name='U_rh')                                                      # [dim_hidden, dim_hidden]
 
 		self.U_hz_hr_nl = tf.Variable(np.concatenate(
-			[ortho_weight(self.hidden_dim), ortho_weight(self.hidden_dim)], axis=1), name='U_hz_hr_nl') # [dim_hidden, 2 * dim_hidden] non_linear
+			[ortho_weight(self.hidden_dim), ortho_weight(self.hidden_dim)], axis=1), name='U_hz_hr_nl')                          # [dim_hidden, 2 * dim_hidden] non_linear
 
-		self.b_hz_hr_nl = tf.Variable(np.zeros((2 * self.hidden_dim, )).astype('float32'), name='b_hz_hr_nl')  # [2 * dim_hidden, ]
+		self.b_hz_hr_nl = tf.Variable(np.zeros((2 * self.hidden_dim, )).astype('float32'), name='b_hz_hr_nl')                    # [2 * dim_hidden, ]
 
 		self.W_c_z_r = tf.Variable(norm_weight(self.context_dim,
 			2 * self.hidden_dim), name='W_c_z_r')
@@ -334,12 +340,9 @@ class WAP():
 		emb_y = tf.nn.embedding_lookup(self.embed_matrix, tf.reshape(cost_y, [-1]))
 		emb_y = tf.reshape(emb_y, [timesteps, batch_size, self.word_dim])
 		emb_pad = tf.fill((1, batch_size, self.word_dim), 0.0)
-		#emb_pad = tf.convert_to_tensor(np.ndarray((1, self.batch_size, self.word_dim), dtype=np.float32))
 		emb_shift = tf.concat([emb_pad ,tf.strided_slice(emb_y, [0, 0, 0], [-1, batch_size, self.word_dim], [1, 1, 1])], axis=0)
-		#print('emb_shift shape is ', emb_shift.get_shape())
 		new_emb_y = emb_shift
 		anno_mean = tf.reduce_sum(cost_annotation * a_m[:, :, :, None], axis=[1, 2]) / tf.reduce_sum(a_m, axis=[1, 2])[:, None]
-		#anno_mean = tf.reduce_mean(cost_annotation, axis=(1, 2))
 		h_0 = tf.tensordot(anno_mean, self.Wa2h, axes=1) + self.ba2h  # [batch, hidden_dim]
 		h_0 = tf.tanh(h_0)
 
@@ -347,21 +350,18 @@ class WAP():
 		h_t = ret[0]                      # h_t of all timesteps [timesteps, batch, word_dim]
 		c_t = ret[1]                      # c_t of all timesteps [timesteps, batch, context_dim]
 
-		y_t_1 = new_emb_y                     # shifted y | [1:] = [:-1]
+		y_t_1 = new_emb_y                 # shifted y | [1:] = [:-1]
 		logit_gru = tf.tensordot(h_t, self.Wh, axes=1) + self.bh
 		logit_ctx = tf.tensordot(c_t, self.Wc, axes=1) + self.bc
 		logit_pre = tf.tensordot(y_t_1, self.Wy, axes=1) + self.by
 		logit = logit_pre + logit_ctx + logit_gru
-		#shape = logit.shape.as_list()
 		shape = tf.shape(logit)
-		#print('get cost shape ', shape)
 		logit = tf.reshape(logit, [shape[0], -1, shape[2]//2, 2])
 		logit = tf.reduce_max(logit, axis=3)
 
 		logit = tf.layers.dropout(inputs=logit, rate=0.2, training=self.training)
 
 		logit = tf.tensordot(logit, self.Wo, axes=1) + self.bo
-		#logit_shape = logit.shape.as_list()
 		logit_shape = tf.shape(logit)
 		logit = tf.reshape(logit, [-1,
 			logit_shape[2]])
@@ -389,7 +389,7 @@ class WAP():
 		hidden_z_r_vector = tf.tensordot(sample_h_pre,
 		self.parser.U_hz_hr, axes=1)                                   # [batch, 2 * dim_decoder]
 		pre_z_r_vector = tf.sigmoid(emb_y_z_r_vector + \
-		hidden_z_r_vector)                                      # [batch, 2 * dim_decoder]
+		hidden_z_r_vector)                                             # [batch, 2 * dim_decoder]
 
 		r1 = pre_z_r_vector[:, :self.parser.hidden_dim]                # [batch, dim_decoder]
 		z1 = pre_z_r_vector[:, self.parser.hidden_dim:]                # [batch, dim_decoder]
@@ -439,7 +439,7 @@ class WAP():
 		return next_probs, next_word, h_t, alpha_past_t
 
 
-	def get_sample(self, p, w, h, alpha, ctx0, h_0, k , maxlen, stochastic, a_h, a_w, session, training):
+	def get_sample(self, p, w, h, alpha, ctx0, h_0, k , maxlen, stochastic, session, training):
 
 		sample = []
 		sample_score = []
@@ -452,7 +452,7 @@ class WAP():
 		hyp_states = []
 
 
-		next_alpha_past = np.zeros((ctx0.shape[0], a_h, a_w)).astype('float32')
+		next_alpha_past = np.zeros((ctx0.shape[0], ctx0.shape[1], ctx0.shape[2])).astype('float32')
 		emb_0 = np.zeros((ctx0.shape[0], 256))
 
 		next_w = -1 * np.ones((1,)).astype('int64')
@@ -492,9 +492,6 @@ class WAP():
 				trans_indices = ranks_flat // voc_size
 				word_indices = ranks_flat % voc_size
 				costs = cand_flat[ranks_flat]
-				#print('trans indices are ', trans_indices)
-				#print('word indices are ', word_indices)
-				#print('costs are ', costs)
 				new_hyp_samples = []
 				new_hyp_scores = np.zeros(k-dead_k).astype('float32')
 				new_hyp_states = []
@@ -546,194 +543,199 @@ class WAP():
 
 
 
-
-worddicts = load_dict('/hdfs/nextmsra/v-wenwa/src/data/dictionary.txt')
-worddicts_r = [None] * len(worddicts)
-for kk, vv in worddicts.items():
-	worddicts_r[vv] = kk
-
-train, train_uid_list = dataIterator('/hdfs/nextmsra/v-wenwa/src/data/offline-train.pkl', '/hdfs/nextmsra/v-wenwa/src/data/train_caption.txt', worddicts,
-	batch_size=6, batch_Imagesize=400000,
-	maxlen=100, maxImagesize=400000)
-
-valid, valid_uid_list = dataIterator('/hdfs/nextmsra/v-wenwa/src/data/offline-test.pkl', '/hdfs/nextmsra/v-wenwa/src/data/test_caption.txt', worddicts,
-	batch_size=6, batch_Imagesize=400000,
-	maxlen=100, maxImagesize=400000)
-
-print('train lenght is ', len(train))
-
-x = tf.placeholder(tf.float32, shape=[None, None, None, 1])
-
-y = tf.placeholder(tf.int32, shape=[None, None])
-
-x_mask = tf.placeholder(tf.float32, shape=[None, None, None])
-
-y_mask = tf.placeholder(tf.float32, shape=[None, None])
-
-lr = tf.placeholder(tf.float32, shape=())
-
-if_trainning = tf.placeholder(tf.bool, shape=())
-
-watcher_train = Watcher_train(blocks=3,level=16, growth_rate=24, training=if_trainning)
-
-annotation, anno_mask = watcher_train.dense_net(x, x_mask)
-
-# for initilaizing validation
-anno = tf.placeholder(tf.float32, shape=[None, annotation.shape.as_list()[1], annotation.shape.as_list()[2], annotation.shape.as_list()[3]])
-infer_y = tf.placeholder(tf.int64, shape=(None,))
-h_pre = tf.placeholder(tf.float32, shape=[None, 256])
-alpha_past = tf.placeholder(tf.float32, shape=[None, annotation.shape.as_list()[1], annotation.shape.as_list()[2]])
-
-attender = Attender(annotation.shape.as_list()[3], 256, 512)
-
-parser = Parser(256, 256, attender, annotation.shape.as_list()[3])
-
-wap = WAP(watcher_train, attender, parser, 256, 256, annotation.shape.as_list()[3], 111, if_trainning)
-
-hidden_state_0 = tf.tanh(tf.tensordot(tf.reduce_mean(anno, axis=[1, 2]), wap.Wa2h, axes=1) + wap.ba2h)  # [batch, hidden_dim]
-
-cost = wap.get_cost(annotation, y, anno_mask, y_mask)
-
-vs = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-
-for vv in vs:
-	if not vv.name.startswith('batch_normalization'):
-		#print(vv)
-		cost += 1e-4 * tf.reduce_sum(tf.pow(vv, 2))
-
-p, w, h, alpha = wap.get_word(infer_y, h_pre, alpha_past, anno)
-
-optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr)
-
-update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-
-with tf.control_dependencies(update_ops):
-	trainer = optimizer.minimize(cost)
-
-max_epoch = 200
-
-config = tf.ConfigProto()
-
-config.gpu_options.allow_growth=True
-
-init = tf.global_variables_initializer()
-
-uidx = 0
-cost_s = 0
-dispFreq = 100
-saveFreq = len(train)
-sampleFreq = len(train)
-validFreq = len(train)
-history_errs = []
-estop = False
-halfLrFlag = 0
-patience = 15
-lrate = 1.0
-log = open('/hdfs/nextmsra/v-wenwa/src/log-bs-6.txt', 'w')
-
-with tf.Session(config=config) as sess:
-	sess.run(init)
-	for epoch in range(max_epoch):
-		n_samples = 0
-		random.shuffle(train)
-		for batch_x, batch_y in train:
-			batch_x, batch_x_m, batch_y, batch_y_m = prepare_data(batch_x, batch_y)
-			n_samples += len(batch_x)
-			uidx += 1
-
-			cost_i, _ = sess.run([cost, trainer],
-				feed_dict={x:batch_x, y:batch_y, x_mask:batch_x_m, y_mask:batch_y_m, if_trainning:True, lr:lrate})
-
-			cost_s += cost_i
-
-			if np.isnan(cost_i) or np.isinf(cost_i):
-				print('invalid cost value detected')
-				sys.exit(0)
-
-
-			if np.mod(uidx, dispFreq) == 0:
-				cost_s /= dispFreq
-				print('Epoch ', epoch, 'Update ', uidx, 'Cost ', cost_s, 'Lr ', lrate)
-				log.write('Epoch ' + str(epoch) + ' Update ' + str(uidx) + ' Cost ' + str(cost_s) + ' Lr ' + str(lrate) + '\n')
-				log.flush()
-				cost_s = 0
-
-
-			if np.mod(uidx, sampleFreq) == 0:
-				fpp_sample = open('/hdfs/nextmsra/v-wenwa/src/result/valid_decode_result-bs-6.txt', 'w')
-				valid_count_idx = 0
-				for batch_x, batch_y in valid:
-					for xx in batch_x:
-						xx = np.moveaxis(xx, 0, -1)
-						xx_pad = np.zeros((xx.shape[0], xx.shape[1], xx.shape[2]), dtype='float32')
-						xx_pad[:,:, :] = xx / 255.
-						xx_pad = xx_pad[None, :, :, :]
-						annot = sess.run(annotation, feed_dict={x:xx_pad, if_trainning:False})
-						h_state = sess.run(hidden_state_0, feed_dict={anno:annot})
-						sample, score = wap.get_sample(p, w, h, alpha, annot, h_state,
-						 10, 100, False, annot.shape[1], annot.shape[2], sess, training=False)
-						score = score / np.array([len(s) for s in sample])
-						ss = sample[score.argmin()]
-						fpp_sample.write(valid_uid_list[valid_count_idx])
-						valid_count_idx=valid_count_idx+1
-						if np.mod(valid_count_idx, 100) == 0:
-							print('gen %d samples'%valid_count_idx)
-							log.write('gen %d samples'%valid_count_idx + '\n')
-							log.flush()
-						for vv in ss:
-							if vv == 0: # <eol>
+def main(args):
+	worddicts = load_dict(args.path + '/data/dictionary.txt')
+	worddicts_r = [None] * len(worddicts)
+	for kk, vv in worddicts.items():
+		worddicts_r[vv] = kk
+	
+	train, train_uid_list = dataIterator(args.path + '/data/offline-train.pkl', args.path + '/data/train_caption.txt', worddicts,
+		batch_size=args.batch_size, batch_Imagesize=400000,
+		maxlen=100, maxImagesize=400000)
+	
+	valid, valid_uid_list = dataIterator(args.path +  '/data/offline-test.pkl', args.path + '/data/test_caption.txt', worddicts,
+		batch_size=args.batch_size, batch_Imagesize=400000,
+		maxlen=100, maxImagesize=400000)
+	
+	print('train lenght is ', len(train))
+	
+	x = tf.placeholder(tf.float32, shape=[None, None, None, 1])
+	
+	y = tf.placeholder(tf.int32, shape=[None, None])
+	
+	x_mask = tf.placeholder(tf.float32, shape=[None, None, None])
+	
+	y_mask = tf.placeholder(tf.float32, shape=[None, None])
+	
+	lr = tf.placeholder(tf.float32, shape=())
+	
+	if_trainning = tf.placeholder(tf.bool, shape=())
+	
+	watcher_train = Watcher_train(blocks=3,level=16, growth_rate=24, training=if_trainning)
+	
+	annotation, anno_mask = watcher_train.dense_net(x, x_mask)
+	
+	# for initilaizing validation
+	anno = tf.placeholder(tf.float32, shape=[None, annotation.shape.as_list()[1], annotation.shape.as_list()[2], annotation.shape.as_list()[3]])
+	infer_y = tf.placeholder(tf.int64, shape=(None,))
+	h_pre = tf.placeholder(tf.float32, shape=[None, 256])
+	alpha_past = tf.placeholder(tf.float32, shape=[None, annotation.shape.as_list()[1], annotation.shape.as_list()[2]])
+	
+	attender = Attender(annotation.shape.as_list()[3], 256, 512)
+	
+	parser = Parser(256, 256, attender, annotation.shape.as_list()[3])
+	
+	wap = WAP(watcher_train, attender, parser, 256, 256, annotation.shape.as_list()[3], 111, if_trainning)
+	
+	hidden_state_0 = tf.tanh(tf.tensordot(tf.reduce_mean(anno, axis=[1, 2]), wap.Wa2h, axes=1) + wap.ba2h)  # [batch, hidden_dim]
+	
+	cost = wap.get_cost(annotation, y, anno_mask, y_mask)
+	
+	vs = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+	
+	for vv in vs:
+		if not vv.name.startswith('batch_normalization'):
+			cost += 1e-4 * tf.reduce_sum(tf.pow(vv, 2))
+	
+	p, w, h, alpha = wap.get_word(infer_y, h_pre, alpha_past, anno)
+	
+	optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr)
+	
+	update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+	
+	with tf.control_dependencies(update_ops):
+		trainer = optimizer.minimize(cost)
+	
+	max_epoch = 200
+	
+	config = tf.ConfigProto()
+	
+	config.gpu_options.allow_growth=True
+	
+	init = tf.global_variables_initializer()
+	
+	uidx = 0
+	cost_s = 0
+	dispFreq = 100
+	saveFreq = len(train)
+	sampleFreq = len(train)
+	validFreq = len(train)
+	history_errs = []
+	estop = False
+	halfLrFlag = 0
+	patience = 15
+	lrate = 1.0
+	log = open(args.path + '/log-bs-6.txt', 'w')
+	
+	with tf.Session(config=config) as sess:
+		sess.run(init)
+		for epoch in range(max_epoch):
+			n_samples = 0
+			random.shuffle(train)
+			for batch_x, batch_y in train:
+				batch_x, batch_x_m, batch_y, batch_y_m = prepare_data(batch_x, batch_y)
+				n_samples += len(batch_x)
+				uidx += 1
+	
+				cost_i, _ = sess.run([cost, trainer],
+					feed_dict={x:batch_x, y:batch_y, x_mask:batch_x_m, y_mask:batch_y_m, if_trainning:True, lr:lrate})
+	
+				cost_s += cost_i
+	
+				if np.isnan(cost_i) or np.isinf(cost_i):
+					print('invalid cost value detected')
+					sys.exit(0)
+	
+	
+				if np.mod(uidx, dispFreq) == 0:
+					cost_s /= dispFreq
+					print('Epoch ', epoch, 'Update ', uidx, 'Cost ', cost_s, 'Lr ', lrate)
+					log.write('Epoch ' + str(epoch) + ' Update ' + str(uidx) + ' Cost ' + str(cost_s) + ' Lr ' + str(lrate) + '\n')
+					log.flush()
+					cost_s = 0
+	
+	
+				if np.mod(uidx, sampleFreq) == 0:
+					fpp_sample = open(args.path + '/result/valid_decode_result-bs-6.txt', 'w')
+					valid_count_idx = 0
+					for batch_x, batch_y in valid:
+						for xx in batch_x:
+							xx = np.moveaxis(xx, 0, -1)
+							xx_pad = np.zeros((xx.shape[0], xx.shape[1], xx.shape[2]), dtype='float32')
+							xx_pad[:,:, :] = xx / 255.
+							xx_pad = xx_pad[None, :, :, :]
+							annot = sess.run(annotation, feed_dict={x:xx_pad, if_trainning:False})
+							h_state = sess.run(hidden_state_0, feed_dict={anno:annot})
+							sample, score = wap.get_sample(p, w, h, alpha, annot, h_state,
+							 10, 100, False, sess, training=False)
+							score = score / np.array([len(s) for s in sample])
+							ss = sample[score.argmin()]
+							fpp_sample.write(valid_uid_list[valid_count_idx])
+							valid_count_idx=valid_count_idx+1
+							if np.mod(valid_count_idx, 100) == 0:
+								print('gen %d samples'%valid_count_idx)
+								log.write('gen %d samples'%valid_count_idx + '\n')
+								log.flush()
+							for vv in ss:
+								if vv == 0: # <eol>
+									break
+								fpp_sample.write(' '+worddicts_r[vv])
+							fpp_sample.write('\n')
+					fpp_sample.close()
+					print('valid set decode done')
+					log.write('valid set decode done\n')
+					log.flush()
+	
+	
+				if np.mod(uidx, validFreq) == 0:
+					probs = []
+					for batch_x, batch_y in valid:
+						batch_x, batch_x_m, batch_y, batch_y_m = prepare_data(batch_x, batch_y)
+						pprobs, annot = sess.run([cost, annotation], feed_dict={x:batch_x, y:batch_y, x_mask:batch_x_m, y_mask:batch_y_m, if_trainning:False})
+						probs.append(pprobs)
+					valid_errs = np.array(probs)
+					valid_err_cost = valid_errs.mean()
+					os.system('python3.4 compute-wer.py ' + args.path + '/result/valid_decode_result-bs-6.txt' + ' ' + args.path + '/data/test_caption.txt' + ' ' + args.path + '/result/valid-bs-6.wer')
+					fpp=open(args.path + '/result/valid-bs-6.wer')
+					stuff=fpp.readlines()
+					fpp.close()
+					m=re.search('WER (.*)\n',stuff[0])
+					valid_per=100. * float(m.group(1))
+					m=re.search('ExpRate (.*)\n',stuff[1])
+					valid_sacc=100. * float(m.group(1))
+					valid_err=valid_per
+	
+					history_errs.append(valid_err)
+	
+					if uidx/validFreq == 0 or valid_err <= np.array(history_errs).min():
+						bad_counter = 0
+	
+					if uidx/validFreq != 0 and valid_err > np.array(history_errs).min():
+						bad_counter += 1
+						if bad_counter > patience:
+							if halfLrFlag==2:
+								print('Early Stop!')
+								log.write('Early Stop!\n')
+								log.flush()
+								estop = True
 								break
-							fpp_sample.write(' '+worddicts_r[vv])
-						fpp_sample.write('\n')
-				fpp_sample.close()
-				print('valid set decode done')
-				log.write('valid set decode done\n')
-				log.flush()
+							else:
+								print('Lr decay and retrain!')
+								log.write('Lr decay and retrain!\n')
+								log.flush()
+								bad_counter = 0
+								lrate = lrate / 10
+								halfLrFlag += 1
+	
+					print('Valid WER: %.2f%%, ExpRate: %.2f%%, Cost: %f' % (valid_per,valid_sacc,valid_err_cost))
+					log.write('Valid WER: %.2f%%, ExpRate: %.2f%%, Cost: %f' % (valid_per,valid_sacc,valid_err_cost) + '\n')
+					log.flush()
+			if estop:
+				break
 
-
-			if np.mod(uidx, validFreq) == 0:
-				probs = []
-				for batch_x, batch_y in valid:
-					batch_x, batch_x_m, batch_y, batch_y_m = prepare_data(batch_x, batch_y)
-					pprobs, annot = sess.run([cost, annotation], feed_dict={x:batch_x, y:batch_y, x_mask:batch_x_m, y_mask:batch_y_m, if_trainning:False})
-					#print('valid annotation is ', annot.mean(axis=(1, 2, 3)))
-					probs.append(pprobs)
-				valid_errs = np.array(probs)
-				valid_err_cost = valid_errs.mean()
-				os.system('python3.4 /hdfs/nextmsra/v-wenwa/src/compute-wer.py ' + '/hdfs/nextmsra/v-wenwa/src/result/valid_decode_result-bs-6.txt' + ' ' + '/hdfs/nextmsra/v-wenwa/src/data/test_caption.txt' + ' ' + '/hdfs/nextmsra/v-wenwa/src/result/valid-bs-6.wer')
-				fpp=open('/hdfs/nextmsra/v-wenwa/src/result/valid-bs-6.wer')
-				stuff=fpp.readlines()
-				fpp.close()
-				m=re.search('WER (.*)\n',stuff[0])
-				valid_per=100. * float(m.group(1))
-				m=re.search('ExpRate (.*)\n',stuff[1])
-				valid_sacc=100. * float(m.group(1))
-				valid_err=valid_per
-
-				history_errs.append(valid_err)
-
-				if uidx/validFreq == 0 or valid_err <= np.array(history_errs).min():
-					bad_counter = 0
-
-				if uidx/validFreq != 0 and valid_err > np.array(history_errs).min():
-					bad_counter += 1
-					if bad_counter > patience:
-						if halfLrFlag==2:
-							print('Early Stop!')
-							log.write('Early Stop!\n')
-							log.flush()
-							estop = True
-							break
-						else:
-							print('Lr decay and retrain!')
-							log.write('Lr decay and retrain!\n')
-							log.flush()
-							bad_counter = 0
-							lrate = lrate / 10
-							halfLrFlag += 1
-
-				print('Valid WER: %.2f%%, ExpRate: %.2f%%, Cost: %f' % (valid_per,valid_sacc,valid_err_cost))
-				log.write('Valid WER: %.2f%%, ExpRate: %.2f%%, Cost: %f' % (valid_per,valid_sacc,valid_err_cost) + '\n')
-				log.flush()
-		if estop:
-			break
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--path", default=".")
+	parser.add_argument("--batch_size", type=int, default=6)
+	(args, unknown) = parser.parse_known_args()
+	main(args)

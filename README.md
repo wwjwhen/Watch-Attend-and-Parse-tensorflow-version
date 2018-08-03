@@ -5,7 +5,9 @@
 
 This project is a tensorflow implementation of the DenseNet model provided by [jianshu's Github](https://github.com/JianshuZhang/WAP). 
 
-Mainly based on his two papers, [Watch, attend and parse: An end-to-end neural network based approach to handwritten mathematical expression recognition](https://www.sciencedirect.com/science/article/pii/S0031320317302376)
+Mainly based on his two papers:
+
+[Watch, attend and parse: An end-to-end neural network based approach to handwritten mathematical expression recognition](https://www.sciencedirect.com/science/article/pii/S0031320317302376)
 
 [Multi-Scale Attention with Dense Encoder for Handwritten Mathematical Expression Recognition](https://arxiv.org/abs/1801.03530).
 
@@ -23,10 +25,9 @@ the same as ours as jianshu stated in his github [issues](https://github.com/Jia
 
 # Usage
 
-```sh
+```Python
 python model-single-GPU.py  --batch_size=4
 ```
-
 
 # Validation on offline-test.pkl
 

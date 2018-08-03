@@ -17,6 +17,15 @@ the same as ours as jianshu stated in his github [issues](https://github.com/Jia
   - cudnn 7 [optional]
 
 
-# Validation result on offline-test.pkl
+# Usage
+
+```sh
+python model-single-GPU.py
+```
+
+
+# Validation on offline-test.pkl
 
 ![pic3](./misc/WAP-Train.png)
+
+

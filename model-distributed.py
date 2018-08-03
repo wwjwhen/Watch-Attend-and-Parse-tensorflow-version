@@ -695,7 +695,6 @@ def main(args):
         vs = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         for vv in vs:
             if not 'BatchNorm' in vv.name:
-                print('regularized ', vv.name)
                 cost += 1e-4 * tf.reduce_sum(tf.pow(vv, 2))
                 
         p, w, h, alpha = wap.get_word(infer_y, h_pre, alpha_past, anno)
